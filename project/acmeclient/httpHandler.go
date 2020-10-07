@@ -179,7 +179,15 @@ func (httpHandler *HttpHandler) Post() error {
 	defer resp.Body.Close()
 
 	httpHandler.context.respHeaders = resp.Header
-	fmt.Println(resp.Header)
 
-	return json.NewDecoder(resp.Body).Decode(httpHandler.context.respBody)
+	responseData, err := ioutil.ReadAll(resp.Body)
+    if err != nil {
+		return err
+	}
+
+    responseString := string(responseData)
+	fmt.Println(responseString)
+	json.Unmarshal([]byte(responseString), &httpHandler.context.respBody)
+	return nil
+	// return json.NewDecoder(resp.Body).Decode(httpHandler.context.respBody)
 }

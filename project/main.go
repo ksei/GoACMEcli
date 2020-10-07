@@ -88,6 +88,7 @@ func main() {
 	acmeClient.DiscoverDirectories()
 	acmeClient.RequestNonce()
 	acmeClient.RequestNewAccount()
+	acmeClient.PlaceNewOrder()
 	// jws, err := acmeClient.GetJWSFromPayload(*privateKey, account)
 	// fmt.Println(string(jws))
 	acmeClient.Debug()

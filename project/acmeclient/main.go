@@ -14,5 +14,6 @@ func main() {
 	cli.DiscoverDirectories()
 	cli.RequestNonce()
 	cli.RequestNewAccount()
+	cli.PlaceNewOrder()
 	cli.Debug()
 }

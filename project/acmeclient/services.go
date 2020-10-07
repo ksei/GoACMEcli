@@ -83,22 +83,29 @@ func (cli *Client) PlaceNewOrder() error {
 	}
 
 	cli.httpHandler.context.URL = cli.directory.NewOrder
+
+	identifiers := OrderIdentifier{
+		Type:  "dns",
+		Value: "dummysite.org",
+	}
+
 	reqBody, err := cli.GetJWSFromPayload(
-		&NewAccountRequest{
-			TermsOfServiceAgreed: true,
-			Contact:              []string{"mailto:ksei@netsec.com"},
+		&NewOrderRequest{
+			Identifiers: []OrderIdentifier{identifiers},
 		})
 	if err != nil {
 		return err
 	}
 
+	newOrder := &Order{}
 	cli.httpHandler.context.reqBody = reqBody
-	cli.httpHandler.context.respBody = &cli.account
+	cli.httpHandler.context.respBody = newOrder
 
 	defer cli.httpHandler.clearContext()
 
 	err = cli.httpHandler.Post()
 	if err != nil {
+		fmt.Println(err)
 		return err
 	}
 
@@ -106,13 +113,9 @@ func (cli *Client) PlaceNewOrder() error {
 	if !ok {
 		return errors.New("acme-client: required resource [Replay-Nonce] not found in server response")
 	}
-	cli.ReplayNonce = nonce[0]
 
-	accountURL, ok := cli.httpHandler.context.respHeaders[Location]
-	if !ok {
-		return errors.New("acme-client: required resource [Location] not found in server response")
-	}
-	cli.account.URL = accountURL[0]
+	cli.ReplayNonce = nonce[0]
+	cli.orders = append(cli.orders, newOrder)
 
 	return nil
 }
@@ -120,5 +123,6 @@ func (cli *Client) PlaceNewOrder() error {
 func (cli *Client) Debug() {
 	fmt.Println(cli.directory.NewOrder)
 	fmt.Println(cli.ReplayNonce)
-	fmt.Println(cli.account.Status)
+	fmt.Println(cli.account.URL)
+	fmt.Println(cli.orders[0])
 }

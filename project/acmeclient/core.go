@@ -10,6 +10,7 @@ type Client struct {
 	httpHandler *HttpHandler
 	account     *Account
 	directory   *Directory
+	orders      []*Order
 	ReplayNonce string
 }
 
@@ -55,6 +56,28 @@ type NewAccountRequest struct {
 	TermsOfServiceAgreed   bool     `json:"termsOfServiceAgreed,omitempty"`
 	OnlyReturnExisting     bool     `json:"onlyReturnExisting,omitempty"`
 	ExternalAccountBinding *Account `json:"externalAccountBinding,omitempty"`
+}
+
+type Order struct {
+	Status         string            `json:"status"`
+	Expires        string            `json:"expires"`
+	Identifiers    []OrderIdentifier `json:"identifiers,required"`
+	NotBefore      string            `json:"notBefore"`
+	NotAfter       string            `json:"notAfter"`
+	Authorizations []string          `json:"authorizations"`
+	Finalize       string            `json:"finalize"`
+	Certificate    string            `json:"certificate"`
+}
+
+type NewOrderRequest struct {
+	Identifiers []OrderIdentifier `json:"identifiers,required"`
+	NotBefore   string            `json:"notBefore,omitempty"`
+	NotAfter    string            `json:"notAfter,omitempty"`
+}
+
+type OrderIdentifier struct {
+	Type  string `json:"type,required"`
+	Value string `json:"value,required"`
 }
 
 type Directory struct {

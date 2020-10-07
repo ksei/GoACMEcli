@@ -7,6 +7,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"errors"
+	"fmt"
 )
 
 const (
@@ -30,7 +31,7 @@ type JWSProtectedHeader struct {
 	Alg         string `json:"alg"`
 	ReplayNonce string `json:"nonce"`
 	URL         string `json:"url"`
-	JWK         JWK    `json:"jwk,omitempty"`
+	JWK         *JWK   `json:"jwk,omitempty"`
 	KID         string `json:"kid,omitempty"`
 }
 
@@ -61,12 +62,13 @@ func getJWSProtectedHeader(publicKey ecdsa.PublicKey, alg, nonce, keyId, url str
 		URL:         url,
 	}
 
+	fmt.Println("KeyID: ", keyId)
 	if keyId == "" {
 		jwk, err := getJWKFromKey(publicKey)
 		if err != nil {
 			return "", err
 		}
-		jwsProtected.JWK = *jwk
+		jwsProtected.JWK = jwk
 	} else {
 		jwsProtected.KID = keyId
 	}
