@@ -89,6 +89,7 @@ func main() {
 	acmeClient.RequestNonce()
 	acmeClient.RequestNewAccount()
 	acmeClient.PlaceNewOrder()
+	acmeClient.RequestAuthorization()
 	// jws, err := acmeClient.GetJWSFromPayload(*privateKey, account)
 	// fmt.Println(string(jws))
 	acmeClient.Debug()

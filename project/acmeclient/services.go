@@ -120,9 +120,46 @@ func (cli *Client) PlaceNewOrder() error {
 	return nil
 }
 
+func (cli *Client) RequestAuthorization() error {
+
+	if len(cli.orders) < 1 {
+		return errors.New("acme-client: could not find any orders")
+	}
+
+	cli.httpHandler.context.URL = cli.orders[0].Authorizations[0]
+
+	reqBody, err := cli.GetJWSFromPayload(nil)
+	if err != nil {
+		return err
+	}
+
+	newAuthorization := &Authorization{}
+	cli.httpHandler.context.reqBody = reqBody
+	cli.httpHandler.context.respBody = newAuthorization
+
+	defer cli.httpHandler.clearContext()
+
+	err = cli.httpHandler.Post()
+	if err != nil {
+		fmt.Println(err)
+		return err
+	}
+
+	nonce, ok := cli.httpHandler.context.respHeaders[ReplayNonce]
+	if !ok {
+		return errors.New("acme-client: required resource [Replay-Nonce] not found in server response")
+	}
+
+	cli.ReplayNonce = nonce[0]
+	cli.CurrentlyProcessingAuthorization = newAuthorization
+
+	return nil
+}
+
 func (cli *Client) Debug() {
 	fmt.Println(cli.directory.NewOrder)
 	fmt.Println(cli.ReplayNonce)
 	fmt.Println(cli.account.URL)
 	fmt.Println(cli.orders[0])
+	fmt.Println(cli.CurrentlyProcessingAuthorization)
 }

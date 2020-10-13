@@ -15,5 +15,6 @@ func main() {
 	cli.RequestNonce()
 	cli.RequestNewAccount()
 	cli.PlaceNewOrder()
+	cli.RequestAuthorization()
 	cli.Debug()
 }

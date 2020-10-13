@@ -106,13 +106,17 @@ func (cli *Client) GetJWSFromPayload(payload interface{}) ([]byte, error) {
 		return nil, err
 	}
 
-	payloadSerialized, err := json.Marshal(payload)
-	if err != nil {
-		return nil, err
+	var payloadEncoded string
+	if payload != nil {
+		payloadSerialized, err := json.Marshal(payload)
+		if err != nil {
+			return nil, err
+		}
+
+		payloadEncoded = base64.RawURLEncoding.EncodeToString(payloadSerialized)
+	} else {
+		payloadEncoded = ""
 	}
-
-	payloadEncoded := base64.RawURLEncoding.EncodeToString(payloadSerialized)
-
 	hash := sha256.New()
 	hash.Write([]byte(protected + "." + payloadEncoded))
 	JWSignature, err := getJWSignature(cli.account.privateKey, hash.Sum(nil))

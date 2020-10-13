@@ -7,11 +7,12 @@ import (
 )
 
 type Client struct {
-	httpHandler *HttpHandler
-	account     *Account
-	directory   *Directory
-	orders      []*Order
-	ReplayNonce string
+	httpHandler                      *HttpHandler
+	account                          *Account
+	directory                        *Directory
+	orders                           []*Order
+	ReplayNonce                      string
+	CurrentlyProcessingAuthorization *Authorization
 }
 
 func NewClient(directoryURL string) (*Client, error) {
@@ -43,6 +44,22 @@ func NewAccount() (*Account, error) {
 	return account, nil
 }
 
+type Directory struct {
+	URL        string `json:"-"`
+	KeyChange  string `json:"keyChange"`
+	NewAuthz   string `json:"newAuthz"`
+	NewAccount string `json:"newAccount"`
+	NewNonce   string `json:"newNonce"`
+	NewOrder   string `json:"newOrder"`
+	RevokeCert string `json:"revokeCert"`
+	Meta       struct {
+		TermsOfService          string   `json:"termsOfService"`
+		Website                 string   `json:"website"`
+		CaaIdentities           []string `json:"caaIdentities"`
+		ExternalAccountRequired bool     `json:"externalAccountRequired"`
+	} `json:"meta"`
+}
+
 type Account struct {
 	URL        string            `json:"-"`
 	Status     string            `json:"status"`
@@ -67,6 +84,7 @@ type Order struct {
 	Authorizations []string          `json:"authorizations"`
 	Finalize       string            `json:"finalize"`
 	Certificate    string            `json:"certificate"`
+	Err            *Error            `json:"error,omitempty"`
 }
 
 type NewOrderRequest struct {
@@ -80,18 +98,25 @@ type OrderIdentifier struct {
 	Value string `json:"value,required"`
 }
 
-type Directory struct {
-	URL        string `json:"-"`
-	KeyChange  string `json:"keyChange"`
-	NewAuthz   string `json:"newAuthz"`
-	NewAccount string `json:"newAccount"`
-	NewNonce   string `json:"newNonce"`
-	NewOrder   string `json:"newOrder"`
-	RevokeCert string `json:"revokeCert"`
-	Meta       struct {
-		TermsOfService          string   `json:"termsOfService"`
-		Website                 string   `json:"website"`
-		CaaIdentities           []string `json:"caaIdentities"`
-		ExternalAccountRequired bool     `json:"externalAccountRequired"`
-	} `json:"meta"`
+type Authorization struct {
+	Identifier *OrderIdentifier `json:"identifier,required"`
+	Status     string           `json:"status"`
+	Expires    string           `json:"expires,omitempty"`
+	Challenges []Challenge      `json:"challenges,required"`
+	Wildcard   bool             `json:"wildcard,omitempty"`
+}
+
+type Challenge struct {
+	Type      string `json:"type,required"`
+	URL       string `json:"url,required"`
+	Token     string `json:"token,required"`
+	Status    string `json:"status,required"`
+	Validated string `json:"validated,omitempty"`
+	Err       *Error `json:"error,omitempty"`
+}
+
+type Error struct {
+	Type        string  `json:"type,omitempty"`
+	Detail      string  `json:"detail,omitempty"`
+	Subproblems []Error `json:"subproblems,omitempty"`
 }
