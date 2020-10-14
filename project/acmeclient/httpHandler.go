@@ -108,7 +108,7 @@ func (httpHandler *HttpHandler) setBody(req *http.Request) error {
 		return errors.New("[httpHandler error] : bad request body")
 	}
 
-	fmt.Println(string(requestBody))
+	// fmt.Println(string(requestBody))
 	req.Body = ioutil.NopCloser(bytes.NewReader(requestBody))
 	req.ContentLength = int64(len(requestBody))
 	return nil
@@ -170,23 +170,29 @@ func (httpHandler *HttpHandler) Post() error {
 	if err != nil {
 		return err
 	}
-	fmt.Println(req.Header)
+	// fmt.Println(req.Header)
 	resp, err := httpHandler.httpClient.Do(req)
 	if err != nil {
 		return err
 	}
 
 	defer resp.Body.Close()
-
 	httpHandler.context.respHeaders = resp.Header
 
 	responseData, err := ioutil.ReadAll(resp.Body)
-    if err != nil {
+	if err != nil {
 		return err
 	}
 
-    responseString := string(responseData)
-	fmt.Println(responseString)
+	responseString := string(responseData)
+	// fmt.Println(responseString)s
+
+	if resp.StatusCode >= 400 {
+		err := &Error{}
+		json.Unmarshal([]byte(responseString), err)
+		return errors.New("Type: " + err.Type + "\nDetail: " + err.Detail)
+	}
+
 	json.Unmarshal([]byte(responseString), &httpHandler.context.respBody)
 	return nil
 	// return json.NewDecoder(resp.Body).Decode(httpHandler.context.respBody)

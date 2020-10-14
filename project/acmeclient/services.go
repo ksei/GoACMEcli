@@ -85,8 +85,8 @@ func (cli *Client) PlaceNewOrder() error {
 	cli.httpHandler.context.URL = cli.directory.NewOrder
 
 	identifiers := OrderIdentifier{
-		Type:  "dns",
-		Value: "dummysite.org",
+		Type:  cli.Ctx.ChallengeType,
+		Value: cli.Ctx.Domains[0],
 	}
 
 	reqBody, err := cli.GetJWSFromPayload(

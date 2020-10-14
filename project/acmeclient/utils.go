@@ -7,7 +7,6 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"errors"
-	"fmt"
 )
 
 const (
@@ -62,7 +61,7 @@ func getJWSProtectedHeader(publicKey ecdsa.PublicKey, alg, nonce, keyId, url str
 		URL:         url,
 	}
 
-	fmt.Println("KeyID: ", keyId)
+	// fmt.Println("KeyID: ", keyId)
 	if keyId == "" {
 		jwk, err := getJWKFromKey(publicKey)
 		if err != nil {

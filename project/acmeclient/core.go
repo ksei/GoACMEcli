@@ -7,6 +7,7 @@ import (
 )
 
 type Client struct {
+	Ctx                              *Context
 	httpHandler                      *HttpHandler
 	account                          *Account
 	directory                        *Directory
@@ -15,8 +16,10 @@ type Client struct {
 	CurrentlyProcessingAuthorization *Authorization
 }
 
-func NewClient(directoryURL string) (*Client, error) {
-	cli := &Client{}
+func NewClient(ctx *Context) (*Client, error) {
+	cli := &Client{
+		Ctx: ctx,
+	}
 	var err error
 
 	cli.account, err = NewAccount()
@@ -29,7 +32,7 @@ func NewClient(directoryURL string) (*Client, error) {
 		return nil, err
 	}
 
-	cli.directory = &Directory{URL: directoryURL}
+	cli.directory = &Directory{URL: ctx.AcmeServerDirectory}
 
 	return cli, nil
 }
