@@ -57,11 +57,6 @@ func (dnsSrv *DNSServer) getTXT(domain string) (string, bool) {
 	return TXT, ok
 }
 
-var domainsToAddresses map[string]string = map[string]string{
-	"google.com.":       "1.2.3.4",
-	"jameshfisher.com.": "104.198.14.52",
-}
-
 func (dnsSrv *DNSServer) ServeDNS(w dns.ResponseWriter, r *dns.Msg) {
 	msg := dns.Msg{}
 	msg.SetReply(r)
