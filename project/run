@@ -13,12 +13,16 @@ for i in $@
         if [ "$i" == "--revoke" ]; then 
             REVOKE=true
         elif $EXPECT_DOMAIN; then
-            DOMAINS="$i,$DOMAINS"
+            if [ "$DOMAINS" == "" ];then
+                DOMAINS="$i"
+            else
+                DOMAINS="$i,$DOMAINS"
+            fi
             EXPECT_DOMAIN=false
         elif [ "$i" == "--domain" ]; then
             EXPECT_DOMAIN=true 
         fi
     done
 
-echo "-challengeType=$1 -dir=$3 -record=$5 -domain=$DOMAINS -revoke=$REVOKE"
+# echo "-challengeType=$1 -dir=$3 -record=$5 -domain=$DOMAINS -revoke=$REVOKE"
 ./acmeProject -challengeType=$1 -dir=$3 -record=$5 -domain=$DOMAINS -revoke=$REVOKE

@@ -1,6 +1,8 @@
 package acmeclient
 
 import (
+	"crypto/sha256"
+	"encoding/base64"
 	"errors"
 	"fmt"
 )
@@ -84,15 +86,20 @@ func (cli *Client) PlaceNewOrder() error {
 
 	cli.httpHandler.context.URL = cli.directory.NewOrder
 
-	identifiers := OrderIdentifier{
-		Type:  cli.Ctx.ChallengeType,
-		Value: cli.Ctx.Domains[0],
+	var identifiers []OrderIdentifier
+
+	for _, domain := range cli.Ctx.Domains {
+		identifiers = append(identifiers, OrderIdentifier{
+			Type:  cli.Ctx.ChallengeType,
+			Value: domain,
+		})
 	}
 
 	reqBody, err := cli.GetJWSFromPayload(
 		&NewOrderRequest{
-			Identifiers: []OrderIdentifier{identifiers},
+			Identifiers: identifiers,
 		})
+
 	if err != nil {
 		return err
 	}
@@ -120,13 +127,13 @@ func (cli *Client) PlaceNewOrder() error {
 	return nil
 }
 
-func (cli *Client) RequestAuthorization() error {
+func (cli *Client) RequestAuthorization(authorizationIndex int) error {
 
 	if len(cli.orders) < 1 {
 		return errors.New("acme-client: could not find any orders")
 	}
 
-	cli.httpHandler.context.URL = cli.orders[0].Authorizations[0]
+	cli.httpHandler.context.URL = cli.orders[0].Authorizations[authorizationIndex]
 
 	reqBody, err := cli.GetJWSFromPayload(nil)
 	if err != nil {
@@ -151,7 +158,87 @@ func (cli *Client) RequestAuthorization() error {
 	}
 
 	cli.ReplayNonce = nonce[0]
-	cli.CurrentlyProcessingAuthorization = newAuthorization
+	fmt.Println(newAuthorization.Status)
+	cli.CurrentlyProcessingAuthorizations[newAuthorization.Identifier.Value] = newAuthorization
+
+	return nil
+}
+
+func (cli *Client) GetAuthorizations() error {
+	var err error
+	for i := range cli.orders[0].Authorizations {
+		err = cli.RequestAuthorization(i)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (cli *Client) ValidateChallenge(challengeDomain string) error {
+
+	dnsChallenge, err := cli.CurrentlyProcessingAuthorizations[challengeDomain].getDNSChallenge()
+	if err != nil {
+		return err
+	}
+
+	cli.httpHandler.context.URL = dnsChallenge.URL
+	var empty struct{}
+	reqBody, err := cli.GetJWSFromPayload(empty)
+	if err != nil {
+		return err
+	}
+
+	newChallenge := &Challenge{}
+	cli.httpHandler.context.reqBody = reqBody
+	cli.httpHandler.context.respBody = newChallenge
+
+	defer cli.httpHandler.clearContext()
+
+	err = cli.httpHandler.Post()
+	if err != nil {
+		fmt.Println(err)
+		return err
+	}
+
+	nonce, ok := cli.httpHandler.context.respHeaders[ReplayNonce]
+	if !ok {
+		return errors.New("acme-client: required resource [Replay-Nonce] not found in server response")
+	}
+
+	cli.ReplayNonce = nonce[0]
+	fmt.Println(newChallenge)
+	// cli.CurrentlyProcessingAuthorizations[newAuthorization.Identifier.Value] = newAuthorization
+
+	return nil
+}
+
+func (cli *Client) ValidateChallenges() error {
+	var err error
+	for _, authorization := range cli.CurrentlyProcessingAuthorizations {
+		err = cli.ValidateChallenge(authorization.Identifier.Value)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (cli *Client) CompleteDNSChallenge() error {
+	for _, authorization := range cli.CurrentlyProcessingAuthorizations {
+		dnsChallenge, err := authorization.getDNSChallenge()
+		if err != nil {
+			return err
+		}
+
+		keyAuthorization, err := cli.getKeyAuthorization(dnsChallenge.Token)
+		if err != nil {
+			return err
+		}
+		keyAuthorizationDigest := sha256.Sum256([]byte(keyAuthorization))
+
+		cli.Ctx.DnsChallengeChannel <- DNSChallenge{Domain: "_acme-challenge." + authorization.Identifier.Value + ".", TXT: base64.RawURLEncoding.EncodeToString(keyAuthorizationDigest[:])}
+	}
 
 	return nil
 }
@@ -161,5 +248,5 @@ func (cli *Client) Debug() {
 	fmt.Println(cli.ReplayNonce)
 	fmt.Println(cli.account.URL)
 	fmt.Println(cli.orders[0])
-	fmt.Println(cli.CurrentlyProcessingAuthorization)
+	fmt.Println(cli.CurrentlyProcessingAuthorizations[cli.Ctx.Domains[0]])
 }

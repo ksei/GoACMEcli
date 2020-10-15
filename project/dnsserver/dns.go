@@ -1,7 +1,6 @@
 package dnsserver
 
 import (
-	"fmt"
 	"log"
 	"net"
 	"strconv"
@@ -21,7 +20,7 @@ type DNSServer struct {
 
 func StartDNSServer(context *acmeclient.Context) {
 	dnsSrv := &DNSServer{
-		server:        &dns.Server{Addr: "127.0.0.1:" + strconv.Itoa(53), Net: "udp"},
+		server:        &dns.Server{Addr: "127.0.0.1:" + strconv.Itoa(10053), Net: "udp"},
 		ctx:           context,
 		txtChallenges: make(map[string]string),
 	}
@@ -33,8 +32,8 @@ func StartDNSServer(context *acmeclient.Context) {
 
 func (dnsSrv *DNSServer) ListenForChallenges() {
 	for challenge := range dnsSrv.ctx.DnsChallengeChannel {
-		log.Print("Received new Challenge")
-		go dnsSrv.addChallenge(&challenge)
+		log.Print("Received new Challenge ", challenge.Domain, " ", challenge.TXT)
+		dnsSrv.addChallenge(&challenge)
 	}
 }
 
@@ -51,16 +50,16 @@ func (dnsSrv *DNSServer) getTXT(domain string) (string, bool) {
 	dnsSrv.challengeLocker.RLock()
 	defer dnsSrv.challengeLocker.RUnlock()
 	TXT, ok := dnsSrv.txtChallenges[domain]
-	if ok {
-		delete(dnsSrv.txtChallenges, domain)
-	}
+	// if ok {
+	// 	delete(dnsSrv.txtChallenges, domain)
+	// }
 	return TXT, ok
 }
 
 func (dnsSrv *DNSServer) ServeDNS(w dns.ResponseWriter, r *dns.Msg) {
 	msg := dns.Msg{}
 	msg.SetReply(r)
-	fmt.Print(r.Opcode)
+	log.Println("New Query: ", r.Opcode)
 	switch r.Question[0].Qtype {
 	case dns.TypeA:
 		msg.Authoritative = true
@@ -77,7 +76,7 @@ func (dnsSrv *DNSServer) ServeDNS(w dns.ResponseWriter, r *dns.Msg) {
 		if ok {
 			log.Println("Found:", TXT)
 			msg.Answer = append(msg.Answer, &dns.TXT{
-				Hdr: dns.RR_Header{Name: domain, Rrtype: dns.TypeTXT, Class: dns.ClassINET, Ttl: 60},
+				Hdr: dns.RR_Header{Name: domain, Rrtype: dns.TypeTXT, Class: dns.ClassINET, Ttl: 300},
 				Txt: []string{TXT},
 			})
 		}

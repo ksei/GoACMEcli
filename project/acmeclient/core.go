@@ -7,18 +7,19 @@ import (
 )
 
 type Client struct {
-	Ctx                              *Context
-	httpHandler                      *HttpHandler
-	account                          *Account
-	directory                        *Directory
-	orders                           []*Order
-	ReplayNonce                      string
-	CurrentlyProcessingAuthorization *Authorization
+	Ctx                               *Context
+	httpHandler                       *HttpHandler
+	account                           *Account
+	directory                         *Directory
+	orders                            []*Order
+	ReplayNonce                       string
+	CurrentlyProcessingAuthorizations map[string]*Authorization
 }
 
 func NewClient(ctx *Context) (*Client, error) {
 	cli := &Client{
-		Ctx: ctx,
+		Ctx:                               ctx,
+		CurrentlyProcessingAuthorizations: make(map[string]*Authorization),
 	}
 	var err error
 

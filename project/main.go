@@ -10,6 +10,7 @@ import (
 	// "net/http"
 
 	"acmeProject/acmeclient"
+	"acmeProject/dnsserver"
 	"flag"
 	"log"
 )
@@ -34,7 +35,7 @@ func main() {
 	if err != nil {
 		log.Fatalln(err)
 	}
-	// dnsserver.StartDNSServer(Context)
+	dnsserver.StartDNSServer(ctx)
 	// Context.DnsChallengeChannel <- acmeclient.DNSChallenge{Domain: "example.org.", TXT: "This is some text you are supposed to get"}
 	err = acmeClient.DiscoverDirectories()
 	if err != nil {
@@ -52,9 +53,25 @@ func main() {
 	if err != nil {
 		log.Fatalln(err)
 	}
-	err = acmeClient.RequestAuthorization()
+	err = acmeClient.GetAuthorizations()
 	if err != nil {
 		log.Fatalln(err)
 	}
-	acmeClient.Debug()
+	err = acmeClient.CompleteDNSChallenge()
+	if err != nil {
+		log.Fatalln(err)
+	}
+	err = acmeClient.ValidateChallenges()
+	if err != nil {
+		log.Fatalln(err)
+	}
+	// time.Sleep(1000)
+	// err = acmeClient.GetAuthorizations()
+	// if err != nil {
+	// 	log.Fatalln(err)
+	// }
+	// acmeClient.Debug()
+
+	for true {
+	}
 }
