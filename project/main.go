@@ -11,8 +11,10 @@ import (
 
 	"acmeProject/acmeclient"
 	"acmeProject/dnsserver"
+	"acmeProject/httpserver"
 	"flag"
 	"log"
+	"time"
 )
 
 const (
@@ -35,42 +37,67 @@ func main() {
 	if err != nil {
 		log.Fatalln(err)
 	}
+
 	dnsserver.StartDNSServer(ctx)
+	httpserver.StartHttpChallengeServer(ctx)
+	acmeClient.ExecuteObtainCertificateFlow()
 	// Context.DnsChallengeChannel <- acmeclient.DNSChallenge{Domain: "example.org.", TXT: "This is some text you are supposed to get"}
-	err = acmeClient.DiscoverDirectories()
-	if err != nil {
-		log.Fatalln(err)
-	}
-	err = acmeClient.RequestNonce()
-	if err != nil {
-		log.Fatalln(err)
-	}
-	err = acmeClient.RequestNewAccount()
-	if err != nil {
-		log.Fatalln(err)
-	}
-	err = acmeClient.PlaceNewOrder()
-	if err != nil {
-		log.Fatalln(err)
-	}
-	err = acmeClient.GetAuthorizations()
-	if err != nil {
-		log.Fatalln(err)
-	}
-	err = acmeClient.CompleteDNSChallenge()
-	if err != nil {
-		log.Fatalln(err)
-	}
-	err = acmeClient.ValidateChallenges()
-	if err != nil {
-		log.Fatalln(err)
-	}
-	// time.Sleep(1000)
+	// err = acmeClient.DiscoverDirectories()
+	// if err != nil {
+	// 	log.Fatalln(err)
+	// }
+	// err = acmeClient.RequestNonce()
+	// if err != nil {
+	// 	log.Fatalln(err)
+	// }
+	// err = acmeClient.RequestNewAccount()
+	// if err != nil {
+	// 	log.Fatalln(err)
+	// }
+	// err = acmeClient.PlaceNewOrder()
+	// if err != nil {
+	// 	log.Fatalln(err)
+	// }
 	// err = acmeClient.GetAuthorizations()
 	// if err != nil {
 	// 	log.Fatalln(err)
 	// }
-	// acmeClient.Debug()
+	// err = acmeClient.CompleteDNSChallenges()
+	// if err != nil {
+	// 	log.Fatalln(err)
+	// }
+	// err = acmeClient.CompleteHTTPChallenges()
+	// if err != nil {
+	// 	log.Fatalln(err)
+	// }
+	time.Sleep(5 * time.Second)
+	log.Println("[ACME Client] Waiting Period Passed")
+	err = acmeClient.PollOrder()
+	if err != nil {
+		log.Fatalln(err)
+	}
+
+	// err = acmeClient.FinalizeOrder()
+	// if err != nil {
+	// 	log.Fatalln(err)
+	// }
+	// time.Sleep(5 * time.Second)
+	// err = acmeClient.PollOrder()
+	// if err != nil {
+	// 	log.Fatalln(err)
+	// }
+
+	// err = acmeClient.DownloadCertificate()
+	// if err != nil {
+	// 	log.Fatalln(err)
+	// }
+
+	// err = acmeClient.StoreKey()
+	// if err != nil {
+	// 	log.Fatalln(err)
+	// }
+
+	acmeClient.Debug()
 
 	for true {
 	}

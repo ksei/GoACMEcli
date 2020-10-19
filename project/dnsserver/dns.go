@@ -11,6 +11,10 @@ import (
 	"github.com/miekg/dns"
 )
 
+const (
+	port int = 10053
+)
+
 type DNSServer struct {
 	txtChallenges   map[string]string
 	challengeLocker sync.RWMutex
@@ -20,19 +24,17 @@ type DNSServer struct {
 
 func StartDNSServer(context *acmeclient.Context) {
 	dnsSrv := &DNSServer{
-		server:        &dns.Server{Addr: "127.0.0.1:" + strconv.Itoa(10053), Net: "udp"},
+		server:        &dns.Server{Addr: "127.0.0.1:" + strconv.Itoa(port), Net: "udp"},
 		ctx:           context,
 		txtChallenges: make(map[string]string),
 	}
 	dnsSrv.server.Handler = dnsSrv
 	go dnsSrv.ListenForChallenges()
 	go dnsSrv.startServing()
-	log.Println("DNS Server is up and running at 53.")
 }
 
 func (dnsSrv *DNSServer) ListenForChallenges() {
 	for challenge := range dnsSrv.ctx.DnsChallengeChannel {
-		log.Print("Received new Challenge ", challenge.Domain, " ", challenge.TXT)
 		dnsSrv.addChallenge(&challenge)
 	}
 }
@@ -59,7 +61,6 @@ func (dnsSrv *DNSServer) getTXT(domain string) (string, bool) {
 func (dnsSrv *DNSServer) ServeDNS(w dns.ResponseWriter, r *dns.Msg) {
 	msg := dns.Msg{}
 	msg.SetReply(r)
-	log.Println("New Query: ", r.Opcode)
 	switch r.Question[0].Qtype {
 	case dns.TypeA:
 		msg.Authoritative = true
@@ -71,10 +72,9 @@ func (dnsSrv *DNSServer) ServeDNS(w dns.ResponseWriter, r *dns.Msg) {
 	case dns.TypeTXT:
 		msg.Authoritative = true
 		domain := msg.Question[0].Name
-		log.Println("Searching:", domain)
 		TXT, ok := dnsSrv.getTXT(domain)
 		if ok {
-			log.Println("Found:", TXT)
+			log.Println("[DNS Server] Resolved TXT query for", domain)
 			msg.Answer = append(msg.Answer, &dns.TXT{
 				Hdr: dns.RR_Header{Name: domain, Rrtype: dns.TypeTXT, Class: dns.ClassINET, Ttl: 300},
 				Txt: []string{TXT},
@@ -85,7 +85,8 @@ func (dnsSrv *DNSServer) ServeDNS(w dns.ResponseWriter, r *dns.Msg) {
 }
 
 func (dnsSrv *DNSServer) startServing() {
+	log.Println("[DNS Server] Starting DNS Server at port", port)
 	if err := dnsSrv.server.ListenAndServe(); err != nil {
-		log.Fatalf("Failed to set udp listener %s\n", err.Error())
+		log.Fatalf("[DNS Server] Failed to set udp listener %s\n", err.Error())
 	}
 }

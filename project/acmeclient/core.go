@@ -4,22 +4,23 @@ import (
 	"crypto/ecdsa"
 	"crypto/elliptic"
 	"crypto/rand"
+	"crypto/rsa"
 )
 
 type Client struct {
-	Ctx                               *Context
-	httpHandler                       *HttpHandler
-	account                           *Account
-	directory                         *Directory
-	orders                            []*Order
-	ReplayNonce                       string
-	CurrentlyProcessingAuthorizations map[string]*Authorization
+	Ctx                   *Context
+	httpHandler           *HttpHandler
+	account               *Account
+	directory             *Directory
+	orders                []*Order
+	ReplayNonce           string
+	PendingAuthorizations map[string]*Authorization
 }
 
 func NewClient(ctx *Context) (*Client, error) {
 	cli := &Client{
-		Ctx:                               ctx,
-		CurrentlyProcessingAuthorizations: make(map[string]*Authorization),
+		Ctx:                   ctx,
+		PendingAuthorizations: make(map[string]*Authorization),
 	}
 	var err error
 
@@ -36,16 +37,6 @@ func NewClient(ctx *Context) (*Client, error) {
 	cli.directory = &Directory{URL: ctx.AcmeServerDirectory}
 
 	return cli, nil
-}
-
-func NewAccount() (*Account, error) {
-	account := &Account{}
-	privateKey, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
-	if err != nil {
-		return nil, err
-	}
-	account.privateKey = privateKey
-	return account, nil
 }
 
 type Directory struct {
@@ -65,11 +56,22 @@ type Directory struct {
 }
 
 type Account struct {
-	URL        string            `json:"-"`
-	Status     string            `json:"status"`
-	Contact    []string          `json:"contact"`
-	Orders     string            `json:"orders"`
-	privateKey *ecdsa.PrivateKey `json:"-"`
+	URL              string            `json:"-"`
+	Status           string            `json:"status"`
+	Contact          []string          `json:"contact"`
+	Orders           string            `json:"orders"`
+	privateKey       *ecdsa.PrivateKey `json:"-"`
+	serverPrivateKey *rsa.PrivateKey   `json:"-"`
+}
+
+func NewAccount() (*Account, error) {
+	account := &Account{}
+	privateKey, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	if err != nil {
+		return nil, err
+	}
+	account.privateKey = privateKey
+	return account, nil
 }
 
 type NewAccountRequest struct {
@@ -80,6 +82,7 @@ type NewAccountRequest struct {
 }
 
 type Order struct {
+	URL            string            `json:"-"`
 	Status         string            `json:"status"`
 	Expires        string            `json:"expires"`
 	Identifiers    []OrderIdentifier `json:"identifiers,required"`
@@ -123,4 +126,12 @@ type Error struct {
 	Type        string  `json:"type,omitempty"`
 	Detail      string  `json:"detail,omitempty"`
 	Subproblems []Error `json:"subproblems,omitempty"`
+}
+
+func (e *Error) Error() string {
+	return e.Type + " " + e.Detail
+}
+
+func (e *Error) isBadNonce() bool {
+	return e.Type == BadNonce
 }
