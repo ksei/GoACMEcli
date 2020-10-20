@@ -140,7 +140,7 @@ func (cli *Client) PlaceNewOrder() error {
 
 func (cli *Client) RequestAuthorization(authorizationIndex int) error {
 
-	log.Println("[ACME Client] Requesting Authorizaitons...")
+	log.Println("[ACME Client] Requesting Authorizations...")
 
 	if len(cli.orders) < 1 {
 		return errors.New("acme-client: could not find any orders")
@@ -187,6 +187,7 @@ func (cli *Client) GetAuthorizations() error {
 }
 
 func (cli *Client) CompleteDNSChallenges() error {
+	log.Println("[ACME Client] Completing DNS Challenges...")
 	for _, authorization := range cli.PendingAuthorizations {
 		dnsChallenge, err := authorization.getDNSChallenge()
 		if err != nil {
@@ -210,6 +211,7 @@ func (cli *Client) CompleteDNSChallenges() error {
 }
 
 func (cli *Client) CompleteHTTPChallenges() error {
+	log.Println("[ACME Client] Completing HTTP Challenges...")
 	for _, authorization := range cli.PendingAuthorizations {
 		httpChallenge, err := authorization.getHTTPChallenge()
 		if err != nil {
@@ -241,6 +243,7 @@ func (cli *Client) CompleteChallenges() error {
 
 func (cli *Client) ValidateChallenge(challengeDomain string) error {
 	var URL string
+	log.Println("[ACME Client] Validating Challenges...")
 
 	if cli.Ctx.ChallengeType == "dns01" {
 		dnsChallenge, err := cli.PendingAuthorizations[challengeDomain].getDNSChallenge()
@@ -314,6 +317,7 @@ func (cli *Client) PollOrder() error {
 }
 
 func (cli *Client) WaitUntilOrderReady() error {
+	log.Println("[ACME Client] Waiting for Order to bome Ready...")
 	var err error
 	for cli.orders[0].Status != "ready" {
 		time.Sleep(3 * time.Second)
@@ -326,6 +330,7 @@ func (cli *Client) WaitUntilOrderReady() error {
 }
 
 func (cli *Client) WaitUntilOrderValid() error {
+	log.Println("[ACME Client] Waiting for Order to become Valid...")
 	var err error
 	for cli.orders[0].Status != "valid" {
 		time.Sleep(3 * time.Second)
@@ -338,6 +343,7 @@ func (cli *Client) WaitUntilOrderValid() error {
 }
 
 func (cli *Client) FinalizeOrder() error {
+	log.Println("[ACME Client] Finalizing Order...")
 
 	cli.httpHandler.context.URL = cli.orders[0].Finalize
 
@@ -378,6 +384,7 @@ func (cli *Client) FinalizeOrder() error {
 }
 
 func (cli *Client) DownloadCertificate() error {
+	log.Println("[ACME Client] Downloading Certificate...")
 
 	cli.httpHandler.context.URL = cli.orders[0].Certificate
 
@@ -440,6 +447,8 @@ func (cli *Client) StoreKey() error {
 }
 
 func (cli *Client) RevokeLastIssued() error {
+	log.Println("[ACME Client] Revoking Last Issued...")
+
 	cli.httpHandler.context.URL = cli.directory.RevokeCert
 
 	var payload struct {
