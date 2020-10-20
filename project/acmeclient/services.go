@@ -15,13 +15,14 @@ import (
 func (cli *Client) DiscoverDirectories() error {
 	cli.httpHandler.context.URL = cli.directory.URL
 	cli.httpHandler.context.respBody = &cli.directory
-	log.Println("[ACME Client] Discovering Directories")
+	log.Println("[ACME Client] Discovering Directories...")
 	defer cli.httpHandler.clearContext()
 
 	return cli.httpHandler.Get()
 }
 
 func (cli *Client) RequestNonce() error {
+	log.Println("[ACME Client] Requesting Nonce...")
 	if cli.directory.NewNonce == "" {
 		return errors.New("acme-client: directory for required resource [Replay-Nonce] not found")
 	}
@@ -45,6 +46,7 @@ func (cli *Client) RequestNonce() error {
 
 //RequestNewAccount issues a new account request to the ACME server
 func (cli *Client) RequestNewAccount() error {
+	log.Println("[ACME Client] Creating New Account...")
 	if cli.directory.NewAccount == "" {
 		return errors.New("acme-client: directory for required resource [NewAccount] not found")
 	}
@@ -85,6 +87,7 @@ func (cli *Client) RequestNewAccount() error {
 }
 
 func (cli *Client) PlaceNewOrder() error {
+	log.Println("[ACME Client] Placing New Order...")
 	if cli.directory.NewOrder == "" {
 		return errors.New("acme-client: directory for required resource [NewOrder] not found")
 	}
@@ -136,6 +139,8 @@ func (cli *Client) PlaceNewOrder() error {
 }
 
 func (cli *Client) RequestAuthorization(authorizationIndex int) error {
+
+	log.Println("[ACME Client] Requesting Authorizaitons...")
 
 	if len(cli.orders) < 1 {
 		return errors.New("acme-client: could not find any orders")
