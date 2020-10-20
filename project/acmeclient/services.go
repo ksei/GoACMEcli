@@ -6,7 +6,6 @@ import (
 	"encoding/base64"
 	"encoding/pem"
 	"errors"
-	"fmt"
 	"io/ioutil"
 	"log"
 	"os"
@@ -16,7 +15,7 @@ import (
 func (cli *Client) DiscoverDirectories() error {
 	cli.httpHandler.context.URL = cli.directory.URL
 	cli.httpHandler.context.respBody = &cli.directory
-	log.Println("Discovering")
+	log.Println("[ACME Client] Discovering Directories")
 	defer cli.httpHandler.clearContext()
 
 	return cli.httpHandler.Get()
@@ -118,7 +117,6 @@ func (cli *Client) PlaceNewOrder() error {
 
 	err = cli.httpHandler.Post()
 	if err != nil {
-		fmt.Println(err)
 		return err
 	}
 
@@ -158,7 +156,6 @@ func (cli *Client) RequestAuthorization(authorizationIndex int) error {
 
 	err = cli.httpHandler.Post()
 	if err != nil {
-		fmt.Println(err)
 		return err
 	}
 
@@ -271,7 +268,6 @@ func (cli *Client) ValidateChallenge(challengeDomain string) error {
 
 	err = cli.httpHandler.Post()
 	if err != nil {
-		fmt.Println(err)
 		return err
 	}
 
@@ -300,7 +296,6 @@ func (cli *Client) PollOrder() error {
 
 	err = cli.httpHandler.Post()
 	if err != nil {
-		fmt.Println(err)
 		return err
 	}
 
@@ -363,7 +358,6 @@ func (cli *Client) FinalizeOrder() error {
 
 	err = cli.httpHandler.Post()
 	if err != nil {
-		fmt.Println(err)
 		return err
 	}
 
@@ -395,12 +389,19 @@ func (cli *Client) DownloadCertificate() error {
 	if err != nil {
 		return err
 	}
-	path := "certificate.pem"
-	err = ioutil.WriteFile(path, []byte(certificate), 0644)
+
+	block, _ := pem.Decode([]byte(certificate))
+	if block == nil {
+		return errors.New("[ACME Client] could not decode certificate from provided pem")
+	}
+
+	cli.account.lastIssuedCert = base64.RawURLEncoding.EncodeToString(block.Bytes)
+	// path := "certificate.pem"
+	err = ioutil.WriteFile(certificatePath, []byte(certificate), 0644)
 	if err != nil {
 		return err
 	}
-	log.Println("[ACME Client] Stored certificate at", path)
+	log.Println("[ACME Client] Stored certificate at", certificatePath)
 
 	nonce, ok := cli.httpHandler.context.respHeaders[ReplayNonce]
 	if !ok {
@@ -412,13 +413,13 @@ func (cli *Client) DownloadCertificate() error {
 }
 
 func (cli *Client) StoreKey() error {
-	path := "private_key.pem"
+	// path := "private_key.pem"
 	keyPEMBlock := &pem.Block{
 		Type:  "RSA PRIVATE KEY",
 		Bytes: x509.MarshalPKCS1PrivateKey(cli.account.serverPrivateKey),
 	}
 
-	certOut, err := os.Create(path)
+	certOut, err := os.Create(privateKeyPath)
 	if err != nil {
 		return err
 	}
@@ -429,8 +430,45 @@ func (cli *Client) StoreKey() error {
 		return err
 	}
 
-	log.Println("[ACME Client] Stored private key at", path)
+	log.Println("[ACME Client] Stored private key at", certificatePath)
 	return nil
+}
+
+func (cli *Client) RevokeLastIssued() error {
+	cli.httpHandler.context.URL = cli.directory.RevokeCert
+
+	var payload struct {
+		Certificate string `json:"certificate"`
+	}
+
+	payload.Certificate = cli.account.lastIssuedCert
+
+	reqBody, err := cli.GetJWSFromPayload(&payload)
+	if err != nil {
+		return err
+	}
+
+	cli.httpHandler.context.reqBody = reqBody
+
+	defer cli.httpHandler.clearContext()
+
+	_, err = cli.httpHandler.PostRAW()
+
+	if err != nil {
+		return err
+	}
+
+	nonce, ok := cli.httpHandler.context.respHeaders[ReplayNonce]
+	if !ok {
+		return errors.New("acme-client: required resource [Replay-Nonce] not found in server response")
+	}
+
+	cli.ReplayNonce = nonce[0]
+
+	log.Println("[ACME Client] Certificate successfully revoked")
+
+	return nil
+
 }
 
 func (cli *Client) ExecuteObtainCertificateFlow() {
@@ -443,6 +481,7 @@ func (cli *Client) ExecuteObtainCertificateFlow() {
 		if err != nil {
 			acmeServerError, ok := err.(*Error)
 			if ok && acmeServerError.isBadNonce() && retriesLeft > 0 {
+				log.Println("[ACME Client]", acmeServerError)
 				step.Insert(func(cli *Client) error { return cli.RequestNonce() })
 				retriesLeft--
 				continue
@@ -451,9 +490,13 @@ func (cli *Client) ExecuteObtainCertificateFlow() {
 		}
 		step = step.next
 	}
+
+	if cli.Ctx.Revoke {
+		cli.RevokeLastIssued()
+	}
 }
 
 func (cli *Client) Debug() {
-	log.Println(cli.orders[0].Status)
+	log.Println(cli.PendingAuthorizations["example.com"].getHTTPChallenge())
 	log.Println(cli.orders[0].Certificate)
 }

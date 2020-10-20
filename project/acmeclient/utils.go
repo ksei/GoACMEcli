@@ -13,7 +13,9 @@ import (
 )
 
 const (
-	ES256 = "ES256"
+	ES256                  = "ES256"
+	certificatePath string = "tls/certificate.pem"
+	privateKeyPath  string = "tls/private_key.pem"
 )
 
 type JWS struct {

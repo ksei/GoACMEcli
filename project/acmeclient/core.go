@@ -62,6 +62,7 @@ type Account struct {
 	Orders           string            `json:"orders"`
 	privateKey       *ecdsa.PrivateKey `json:"-"`
 	serverPrivateKey *rsa.PrivateKey   `json:"-"`
+	lastIssuedCert   string            `json:"-"`
 }
 
 func NewAccount() (*Account, error) {

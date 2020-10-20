@@ -59,7 +59,8 @@ func (httpChallengeServer *HttpChallengeServer) handleChallengeRequest() gin.Han
 
 func (httpChallengeServer *HttpChallengeServer) getConfiguredHTTPRouter() *gin.Engine {
 
-	router := gin.Default()
+	router := gin.New()
+	router.Use(gin.Recovery())
 	router.GET("/.well-known/acme-challenge/:challengeToken", httpChallengeServer.handleChallengeRequest())
 	return router
 }

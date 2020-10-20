@@ -1,28 +1,34 @@
 #!/bin/bash
-DIRECTORY=$(dirname "$0")
-echo "Changing to ${DIRECTORY}"
-cd  "$DIRECTORY" || exit 1
+# DIRECTORY=$(dirname "$0")
+# echo "Changing to ${DIRECTORY}"
+# cd  "$DIRECTORY" || exit 1
 
-echo "Run your project here."
+echo "Running..."
 
-REVOKE=false
-EXPECT_DOMAIN=false
-DOMAINS=""
-for i in $@
-    do
-        if [ "$i" == "--revoke" ]; then 
-            REVOKE=true
-        elif $EXPECT_DOMAIN; then
-            if [ "$DOMAINS" == "" ];then
-                DOMAINS="$i"
+revoke=false
+challenge=$1
+domains=""
+
+shift
+while echo $1 | grep -q ^-; do
+    if [ "$1" == "--revoke" ]; then 
+        revoke=true
+        shift
+        continue
+    fi
+    if [ "$1" == "--domain" ];then
+        if [ "$domains" == "" ];then
+                domains="$2"
             else
-                DOMAINS="$i,$DOMAINS"
+                domains="$2,$domains"
             fi
-            EXPECT_DOMAIN=false
-        elif [ "$i" == "--domain" ]; then
-            EXPECT_DOMAIN=true 
-        fi
-    done
+    else
+    # Evaluating a user entered string!
+    # Red flags!!!  Don't do this
+    eval $( echo $1 | sed 's/^--//' )=$2
+    fi
+    shift
+    shift
+done
 
-# echo "-challengeType=$1 -dir=$3 -record=$5 -domain=$DOMAINS -revoke=$REVOKE"
-./acmeProject -challengeType=$1 -dir=$3 -record=$5 -domain=$DOMAINS -revoke=$REVOKE
+GIN_MODE=release ./acmeProject -challengeType=$challenge -dir=$dir -record=$record -domain=$domains -revoke=$revoke

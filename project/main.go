@@ -10,11 +10,12 @@ import (
 	// "net/http"
 
 	"acmeProject/acmeclient"
+	"acmeProject/certificateserver"
 	"acmeProject/dnsserver"
 	"acmeProject/httpserver"
+	"acmeProject/shutdown"
 	"flag"
 	"log"
-	"time"
 )
 
 const (
@@ -32,7 +33,6 @@ func main() {
 
 	ctx := acmeclient.InitializeContext(*challengeType, *directory, *record, *domain, *revoke)
 
-	//https://localhost:14000/dir for the pebble server
 	acmeClient, err := acmeclient.NewClient(ctx)
 	if err != nil {
 		log.Fatalln(err)
@@ -41,64 +41,6 @@ func main() {
 	dnsserver.StartDNSServer(ctx)
 	httpserver.StartHttpChallengeServer(ctx)
 	acmeClient.ExecuteObtainCertificateFlow()
-	// Context.DnsChallengeChannel <- acmeclient.DNSChallenge{Domain: "example.org.", TXT: "This is some text you are supposed to get"}
-	// err = acmeClient.DiscoverDirectories()
-	// if err != nil {
-	// 	log.Fatalln(err)
-	// }
-	// err = acmeClient.RequestNonce()
-	// if err != nil {
-	// 	log.Fatalln(err)
-	// }
-	// err = acmeClient.RequestNewAccount()
-	// if err != nil {
-	// 	log.Fatalln(err)
-	// }
-	// err = acmeClient.PlaceNewOrder()
-	// if err != nil {
-	// 	log.Fatalln(err)
-	// }
-	// err = acmeClient.GetAuthorizations()
-	// if err != nil {
-	// 	log.Fatalln(err)
-	// }
-	// err = acmeClient.CompleteDNSChallenges()
-	// if err != nil {
-	// 	log.Fatalln(err)
-	// }
-	// err = acmeClient.CompleteHTTPChallenges()
-	// if err != nil {
-	// 	log.Fatalln(err)
-	// }
-	time.Sleep(5 * time.Second)
-	log.Println("[ACME Client] Waiting Period Passed")
-	err = acmeClient.PollOrder()
-	if err != nil {
-		log.Fatalln(err)
-	}
-
-	// err = acmeClient.FinalizeOrder()
-	// if err != nil {
-	// 	log.Fatalln(err)
-	// }
-	// time.Sleep(5 * time.Second)
-	// err = acmeClient.PollOrder()
-	// if err != nil {
-	// 	log.Fatalln(err)
-	// }
-
-	// err = acmeClient.DownloadCertificate()
-	// if err != nil {
-	// 	log.Fatalln(err)
-	// }
-
-	// err = acmeClient.StoreKey()
-	// if err != nil {
-	// 	log.Fatalln(err)
-	// }
-
-	acmeClient.Debug()
-
-	for true {
-	}
+	certificateserver.StartHttpsCertificateServer()
+	shutdown.StartShutdownServer()
 }
