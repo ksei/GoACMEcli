@@ -6,3 +6,6 @@ cd  "$DIRECTORY" || exit 1
 echo "Installing Required Packages..."
 
 go get "github.com/gin-gonic/gin"
+
+
+go build
