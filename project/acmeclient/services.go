@@ -170,7 +170,9 @@ func (cli *Client) RequestAuthorization(authorizationIndex int) error {
 	}
 
 	cli.ReplayNonce = nonce[0]
-	cli.PendingAuthorizations[newAuthorization.Identifier.Value] = newAuthorization
+	cli.orders[0].ContainsWildcard = newAuthorization.Wildcard || cli.orders[0].ContainsWildcard
+	newAuthorization.IndexWithinOrder = authorizationIndex
+	cli.PendingAuthorizations[newAuthorization.getID()] = newAuthorization
 
 	return nil
 }
@@ -179,6 +181,18 @@ func (cli *Client) GetAuthorizations() error {
 	var err error
 	for i := range cli.orders[0].Authorizations {
 		err = cli.RequestAuthorization(i)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (cli *Client) WaitUntilAuthorizaitonReady(authID string) error {
+	var err error
+	for cli.PendingAuthorizations[authID].Status != "valid" {
+		time.Sleep(4 * time.Second)
+		err = cli.RequestAuthorization(cli.PendingAuthorizations[authID].IndexWithinOrder)
 		if err != nil {
 			return err
 		}
@@ -201,9 +215,17 @@ func (cli *Client) CompleteDNSChallenges() error {
 		keyAuthorizationDigest := sha256.Sum256([]byte(keyAuthorization))
 		cli.Ctx.DnsChallengeChannel <- DNSChallenge{Domain: "_acme-challenge." + authorization.Identifier.Value + ".", TXT: base64.RawURLEncoding.EncodeToString(keyAuthorizationDigest[:])}
 
-		err = cli.ValidateChallenge(authorization.Identifier.Value)
+		err = cli.ValidateChallenge(authorization.getID())
 		if err != nil {
 			return err
+		}
+
+		//If order contains wildcard, complete authorizations one by one
+		if cli.orders[0].ContainsWildcard {
+			err = cli.WaitUntilAuthorizaitonReady(authorization.getID())
+			if err != nil {
+				return err
+			}
 		}
 	}
 
@@ -225,7 +247,7 @@ func (cli *Client) CompleteHTTPChallenges() error {
 
 		cli.Ctx.HttpChallengeChannel <- HTTPChallenge{URLParam: httpChallenge.Token, Response: keyAuthorization}
 
-		err = cli.ValidateChallenge(authorization.Identifier.Value)
+		err = cli.ValidateChallenge(authorization.getID())
 		if err != nil {
 			return err
 		}

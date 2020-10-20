@@ -52,9 +52,7 @@ func (dnsSrv *DNSServer) getTXT(domain string) (string, bool) {
 	dnsSrv.challengeLocker.RLock()
 	defer dnsSrv.challengeLocker.RUnlock()
 	TXT, ok := dnsSrv.txtChallenges[domain]
-	// if ok {
-	// 	delete(dnsSrv.txtChallenges, domain)
-	// }
+
 	return TXT, ok
 }
 

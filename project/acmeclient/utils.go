@@ -233,3 +233,10 @@ func composeFlow(f ...func(*Client) error) *Step {
 	}
 	return head
 }
+
+func (auth *Authorization) getID() string {
+	if auth.Wildcard {
+		return "[*]" + auth.Identifier.Value
+	}
+	return auth.Identifier.Value
+}

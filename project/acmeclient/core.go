@@ -83,16 +83,17 @@ type NewAccountRequest struct {
 }
 
 type Order struct {
-	URL            string            `json:"-"`
-	Status         string            `json:"status"`
-	Expires        string            `json:"expires"`
-	Identifiers    []OrderIdentifier `json:"identifiers,required"`
-	NotBefore      string            `json:"notBefore"`
-	NotAfter       string            `json:"notAfter"`
-	Authorizations []string          `json:"authorizations"`
-	Finalize       string            `json:"finalize"`
-	Certificate    string            `json:"certificate"`
-	Err            *Error            `json:"error,omitempty"`
+	URL              string            `json:"-"`
+	Status           string            `json:"status"`
+	Expires          string            `json:"expires"`
+	Identifiers      []OrderIdentifier `json:"identifiers,required"`
+	NotBefore        string            `json:"notBefore"`
+	NotAfter         string            `json:"notAfter"`
+	Authorizations   []string          `json:"authorizations"`
+	Finalize         string            `json:"finalize"`
+	Certificate      string            `json:"certificate"`
+	Err              *Error            `json:"error,omitempty"`
+	ContainsWildcard bool              `json:"-"`
 }
 
 type NewOrderRequest struct {
@@ -107,11 +108,12 @@ type OrderIdentifier struct {
 }
 
 type Authorization struct {
-	Identifier *OrderIdentifier `json:"identifier,required"`
-	Status     string           `json:"status"`
-	Expires    string           `json:"expires,omitempty"`
-	Challenges []Challenge      `json:"challenges,required"`
-	Wildcard   bool             `json:"wildcard,omitempty"`
+	Identifier       *OrderIdentifier `json:"identifier,required"`
+	Status           string           `json:"status"`
+	Expires          string           `json:"expires,omitempty"`
+	Challenges       []Challenge      `json:"challenges,required"`
+	Wildcard         bool             `json:"wildcard,omitempty"`
+	IndexWithinOrder int              `json:"-"`
 }
 
 type Challenge struct {
