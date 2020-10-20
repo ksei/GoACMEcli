@@ -24,7 +24,7 @@ type DNSServer struct {
 
 func StartDNSServer(context *acmeclient.Context) {
 	dnsSrv := &DNSServer{
-		server:        &dns.Server{Addr: "127.0.0.1:" + strconv.Itoa(port), Net: "udp"},
+		server:        &dns.Server{Addr: ":" + strconv.Itoa(port), Net: "udp"},
 		ctx:           context,
 		txtChallenges: make(map[string]string),
 	}
