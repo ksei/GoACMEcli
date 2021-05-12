@@ -6,7 +6,6 @@ import (
 	"crypto/x509"
 	"encoding/json"
 	"errors"
-	"flag"
 	"fmt"
 	"io/ioutil"
 	"net/http"
@@ -29,6 +28,8 @@ const (
 	ReplayNonce = "Replay-Nonce"
 	//Location stores the location header string
 	Location = "Location"
+	//Bad Nonce Error
+	BadNonce = "urn:ietf:params:acme:error:badNonce"
 )
 
 type httpContext struct {
@@ -60,9 +61,6 @@ func NewHttpHandler() (*HttpHandler, error) {
 }
 
 func getTLSConfig() (*http.Transport, error) {
-	insecure := flag.Bool("insecure-ssl", false, "Accept/Ignore all server SSL certificates")
-	flag.Parse()
-
 	rootCAs, _ := x509.SystemCertPool()
 	if rootCAs == nil {
 		rootCAs = x509.NewCertPool()
@@ -70,18 +68,14 @@ func getTLSConfig() (*http.Transport, error) {
 
 	certs, err := ioutil.ReadFile(pebbleCertificate)
 	if err != nil {
-		return nil, fmt.Errorf("Failed to append %q to RootCAs: %v", pebbleCertificate, err)
+		return nil, fmt.Errorf("Could not append peelbe certificate at %q : %v", pebbleCertificate, err)
 	}
-
-	// Append our cert to the system pool
 	if ok := rootCAs.AppendCertsFromPEM(certs); !ok {
-		return nil, fmt.Errorf("No certs appended, using system certs only")
+		return nil, fmt.Errorf("Failed adding custom certificate")
 	}
 
-	// Trust the augmented cert pool in our client
 	config := &tls.Config{
-		InsecureSkipVerify: *insecure,
-		RootCAs:            rootCAs,
+		RootCAs: rootCAs,
 	}
 
 	return &http.Transport{TLSClientConfig: config}, nil
@@ -108,7 +102,7 @@ func (httpHandler *HttpHandler) setBody(req *http.Request) error {
 		return errors.New("[httpHandler error] : bad request body")
 	}
 
-	fmt.Println(string(requestBody))
+	// fmt.Println(string(requestBody))
 	req.Body = ioutil.NopCloser(bytes.NewReader(requestBody))
 	req.ContentLength = int64(len(requestBody))
 	return nil
@@ -158,28 +152,49 @@ func (httpHandler *HttpHandler) Head() error {
 	return nil
 }
 
-func (httpHandler *HttpHandler) Post() error {
+func (httpHandler *HttpHandler) PostRAW() (string, error) {
 	req, err := http.NewRequest(http.MethodPost, httpHandler.context.URL, nil)
 	if err != nil {
-		return err
+		return "", err
 	}
 
 	httpHandler.context.headers[ContentType] = "application/jose+json"
 	httpHandler.setHeaders(req)
 	err = httpHandler.setBody(req)
 	if err != nil {
-		return err
+		return "", err
 	}
-	fmt.Println(req.Header)
+	// fmt.Println(req.Header)
 	resp, err := httpHandler.httpClient.Do(req)
+	if err != nil {
+		return "", err
+	}
+
+	defer resp.Body.Close()
+	httpHandler.context.respHeaders = resp.Header
+
+	responseData, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return "", err
+	}
+
+	responseString := string(responseData)
+	// fmt.Println(responseString)
+
+	if resp.StatusCode >= 400 {
+		err := &Error{}
+		json.Unmarshal([]byte(responseString), err)
+		return "", err
+	}
+
+	return responseString, nil
+}
+
+func (httpHandler *HttpHandler) Post() error {
+	responseString, err := httpHandler.PostRAW()
 	if err != nil {
 		return err
 	}
 
-	defer resp.Body.Close()
-
-	httpHandler.context.respHeaders = resp.Header
-	fmt.Println(resp.Header)
-
-	return json.NewDecoder(resp.Body).Decode(httpHandler.context.respBody)
+	return json.Unmarshal([]byte(responseString), &httpHandler.context.respBody)
 }

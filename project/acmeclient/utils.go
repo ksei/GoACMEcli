@@ -3,14 +3,19 @@ package acmeclient
 import (
 	"crypto/ecdsa"
 	"crypto/rand"
+	"crypto/rsa"
 	"crypto/sha256"
+	"crypto/x509"
+	"crypto/x509/pkix"
 	"encoding/base64"
 	"encoding/json"
 	"errors"
 )
 
 const (
-	ES256 = "ES256"
+	ES256                  = "ES256"
+	certificatePath string = "tls/certificate.pem"
+	privateKeyPath  string = "tls/private_key.pem"
 )
 
 type JWS struct {
@@ -20,8 +25,8 @@ type JWS struct {
 }
 
 type JWK struct {
-	Kty string `json:"kty"`
 	Crv string `json:"crv"`
+	Kty string `json:"kty"`
 	X   string `json:"x"`
 	Y   string `json:"y"`
 }
@@ -30,7 +35,7 @@ type JWSProtectedHeader struct {
 	Alg         string `json:"alg"`
 	ReplayNonce string `json:"nonce"`
 	URL         string `json:"url"`
-	JWK         JWK    `json:"jwk,omitempty"`
+	JWK         *JWK   `json:"jwk,omitempty"`
 	KID         string `json:"kid,omitempty"`
 }
 
@@ -45,8 +50,8 @@ func getJWKFromKey(publicKey ecdsa.PublicKey) (*JWK, error) {
 	y = append(pad, y...)
 
 	jwk := &JWK{
-		Kty: "EC",
 		Crv: keyParams.Name,
+		Kty: "EC",
 		X:   base64.RawURLEncoding.EncodeToString(x),
 		Y:   base64.RawURLEncoding.EncodeToString(y),
 	}
@@ -61,12 +66,13 @@ func getJWSProtectedHeader(publicKey ecdsa.PublicKey, alg, nonce, keyId, url str
 		URL:         url,
 	}
 
+	// fmt.Println("KeyID: ", keyId)
 	if keyId == "" {
 		jwk, err := getJWKFromKey(publicKey)
 		if err != nil {
 			return "", err
 		}
-		jwsProtected.JWK = *jwk
+		jwsProtected.JWK = jwk
 	} else {
 		jwsProtected.KID = keyId
 	}
@@ -98,19 +104,21 @@ func (cli *Client) GetJWSFromPayload(payload interface{}) ([]byte, error) {
 	if cli.account.privateKey == nil {
 		return nil, errors.New("[jws error]: account not initiated yet")
 	}
-
 	protected, err := getJWSProtectedHeader(cli.account.privateKey.PublicKey, ES256, cli.ReplayNonce, cli.account.URL, cli.httpHandler.context.URL)
 	if err != nil {
 		return nil, err
 	}
 
-	payloadSerialized, err := json.Marshal(payload)
-	if err != nil {
-		return nil, err
+	var payloadEncoded string
+	if payload != nil {
+		payloadSerialized, err := json.Marshal(payload)
+		if err != nil {
+			return nil, err
+		}
+		payloadEncoded = base64.RawURLEncoding.EncodeToString(payloadSerialized)
+	} else {
+		payloadEncoded = ""
 	}
-
-	payloadEncoded := base64.RawURLEncoding.EncodeToString(payloadSerialized)
-
 	hash := sha256.New()
 	hash.Write([]byte(protected + "." + payloadEncoded))
 	JWSignature, err := getJWSignature(cli.account.privateKey, hash.Sum(nil))
@@ -126,4 +134,109 @@ func (cli *Client) GetJWSFromPayload(payload interface{}) ([]byte, error) {
 
 	return json.Marshal(JWSObject)
 
+}
+
+func (cli *Client) getKeyAuthorization(token string) (string, error) {
+	jwk, err := getJWKFromKey(cli.account.privateKey.PublicKey)
+	if err != nil {
+		return "", err
+	}
+
+	jwkBytes, err := json.Marshal(jwk)
+	if err != nil {
+		return "", err
+	}
+
+	hash := sha256.New()
+	_, err = hash.Write(jwkBytes)
+	if err != nil {
+		return "", err
+	}
+
+	jwkB64Hash := base64.RawURLEncoding.EncodeToString(hash.Sum(nil))
+
+	return token + "." + jwkB64Hash, nil
+}
+
+func (auth *Authorization) getDNSChallenge() (*Challenge, error) {
+	for _, challenge := range auth.Challenges {
+		if challenge.Type == "dns-01" {
+			return &challenge, nil
+		}
+	}
+	return nil, errors.New("a DNS challenge could not be found for one of your authorizations")
+}
+
+func (auth *Authorization) getHTTPChallenge() (*Challenge, error) {
+	for _, challenge := range auth.Challenges {
+		if challenge.Type == "http-01" {
+			return &challenge, nil
+		}
+	}
+	return nil, errors.New("an HTTP challenge could not be found for one of your authorizations")
+}
+
+func (cli *Client) getCSRBytes() ([]byte, error) {
+
+	serverPrivateKey, err := rsa.GenerateKey(rand.Reader, 2048)
+	if err != nil {
+		return nil, err
+	}
+	if err = serverPrivateKey.Validate(); err != nil {
+		return nil, err
+	}
+
+	csrTemplate := &x509.CertificateRequest{
+		Subject: pkix.Name{
+			Country:            []string{"CH"},
+			Organization:       []string{"ETHZ"},
+			OrganizationalUnit: []string{"NetSec"},
+			Locality:           []string{"Zurich"},
+			Province:           []string{"Zurich"},
+			CommonName:         "kapostoiNetSec",
+		},
+		SignatureAlgorithm: x509.SHA256WithRSA,
+		DNSNames:           cli.Ctx.Domains,
+	}
+
+	derBytes, err := x509.CreateCertificateRequest(rand.Reader, csrTemplate, serverPrivateKey)
+	if err != nil {
+		return nil, err
+	}
+
+	cli.account.serverPrivateKey = serverPrivateKey
+
+	return derBytes, nil
+}
+
+type Step struct {
+	execute func(*Client) error
+	next    *Step
+}
+
+func (s *Step) Insert(f func(*Client) error) {
+	s.next = &Step{
+		execute: f,
+		next:    s.next,
+	}
+}
+
+func composeFlow(f ...func(*Client) error) *Step {
+	head := &Step{
+		execute: nil,
+		next:    nil,
+	}
+	init := head
+	for _, step := range f {
+		init.Insert(step)
+		init = init.next
+	}
+	return head
+}
+
+func (auth *Authorization) getID() string {
+	if auth.Wildcard {
+		return "[*]" + auth.Identifier.Value
+	}
+	return auth.Identifier.Value
 }

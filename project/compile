@@ -1,3 +1,11 @@
 #!/bin/bash
+DIRECTORY=$(dirname "$0")
+echo "Changing to ${DIRECTORY}"
+cd  "$DIRECTORY" || exit 1
 
-echo "Compile your project here"
+echo "Installing Required Packages..."
+
+go get "github.com/gin-gonic/gin"
+
+
+go build

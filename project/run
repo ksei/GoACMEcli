@@ -3,4 +3,32 @@ DIRECTORY=$(dirname "$0")
 echo "Changing to ${DIRECTORY}"
 cd  "$DIRECTORY" || exit 1
 
-echo "Run your project here."
+echo "Running..."
+
+revoke=false
+challenge=$1
+domains=""
+
+shift
+while echo $1 | grep -q ^-; do
+    if [ "$1" == "--revoke" ]; then 
+        revoke=true
+        shift
+        continue
+    fi
+    if [ "$1" == "--domain" ];then
+        if [ "$domains" == "" ];then
+                domains="$2"
+            else
+                domains="$2,$domains"
+            fi
+    else
+    # Evaluating a user entered string!
+    # Red flags!!!  Don't do this
+    eval $( echo $1 | sed 's/^--//' )=$2
+    fi
+    shift
+    shift
+done
+
+GIN_MODE=release ./acmeProject -challengeType=$challenge -dir=$dir -record=$record -domain=$domains -revoke=$revoke
